@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LiftAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg:       #0e0e0e;
+      --bg-2:     #161616;
+      --border:   #2a2a2a;
+      --text:     #e8e6e0;
+      --text-dim: #7a7872;
+      --accent:   #c8f135;
+      --mono:     'DM Mono', monospace;
+      --sans:     'DM Sans', sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #app {
+      display: grid;
+      grid-template-rows: 52px 44px 1fr;
+      height: 100vh;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    /* Top bar */
+    #topbar {
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #wordmark {
+      font-family: var(--mono);
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: -0.5px;
+    }
+
+    #wordmark span { color: var(--accent); }
+
+    .spacer { flex: 1; }
+
+    #user-mark {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      letter-spacing: 1px;
+    }
+
+    /* Nav */
+    #nav {
+      display: flex;
+      align-items: stretch;
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      gap: 2px;
+    }
+
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 14px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: color 0.1s, border-color 0.1s;
+    }
+
+    .nav-btn:hover { color: var(--text); }
+
+    .nav-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* Pages */
+    #content {
+      overflow-y: auto;
+      padding: 32px 20px;
+    }
+
+    .page { display: none; }
+    .page.active { display: block; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <header id="topbar">
+    <div id="wordmark">LIFT<span>AI</span></div>
+    <div class="spacer"></div>
+    <div id="user-mark">IA</div>
+  </header>
+
+  <nav id="nav">
+    <button class="nav-btn active" onclick="showPage('home', this)">HOME</button>
+    <button class="nav-btn" onclick="showPage('planner', this)">AI PLANNER</button>
+    <button class="nav-btn" onclick="showPage('library', this)">EXERCISES</button>
+    <button class="nav-btn" onclick="showPage('log', this)">LOG</button>
+    <button class="nav-btn" onclick="showPage('coach', this)">AI COACH</button>
+  </nav>
+
+  <main id="content">
+    <section class="page active" id="page-home"></section>
+    <section class="page" id="page-planner"></section>
+    <section class="page" id="page-library"></section>
+    <section class="page" id="page-log"></section>
+    <section class="page" id="page-coach"></section>
+  </main>
+
+</div>
+<script>
+  function showPage(name, btn) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    btn.classList.add('active');
+  }
+</script>
+</body>
+</html>
