@@ -109,6 +109,65 @@
 
     .page { display: none; }
     .page.active { display: block; }
+
+    /* Home */
+    .greeting {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .home-title {
+      font-size: 26px;
+      font-weight: 300;
+      letter-spacing: -0.5px;
+      margin-bottom: 32px;
+    }
+
+    .home-title strong {
+      font-weight: 500;
+      color: var(--accent);
+    }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+    }
+
+    .stat-cell {
+      background: var(--bg-2);
+      padding: 20px 16px;
+    }
+
+    .stat-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .stat-value {
+      font-family: var(--mono);
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: -1px;
+    }
+
+    .stat-unit {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-dim);
+      letter-spacing: 0;
+      margin-left: 3px;
+    }
   </style>
 </head>
 <body>
@@ -129,7 +188,24 @@
   </nav>
 
   <main id="content">
-    <section class="page active" id="page-home"></section>
+    <section class="page active" id="page-home">
+      <div class="greeting">Week 3 &middot; Push day</div>
+      <h1 class="home-title">Good morning, <strong>Inigo.</strong></h1>
+      <div class="stat-row">
+        <div class="stat-cell">
+          <div class="stat-label">Sessions</div>
+          <div class="stat-value">2<span class="stat-unit">/ 4</span></div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">Volume</div>
+          <div class="stat-value">4820<span class="stat-unit">kg</span></div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">Streak</div>
+          <div class="stat-value">6<span class="stat-unit">days</span></div>
+        </div>
+      </div>
+    </section>
     <section class="page" id="page-planner"></section>
     <section class="page" id="page-library"></section>
     <section class="page" id="page-log"></section>
