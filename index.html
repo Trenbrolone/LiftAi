@@ -432,6 +432,7 @@
 
   function toggleCheck(btn) {
     btn.classList.toggle('done');
+    saveWorkout();
   }
 
   function addSet(btn) {
@@ -441,17 +442,23 @@
     row.className = 'set-row';
     row.innerHTML =
       '<div class="set-num">' + num + '</div>' +
-      '<input class="set-input" type="number" placeholder="80" />' +
-      '<input class="set-input" type="number" placeholder="8" />' +
+      '<input class="set-input" type="number" placeholder="80" oninput="saveWorkout()" />' +
+      '<input class="set-input" type="number" placeholder="8" oninput="saveWorkout()" />' +
       '<button class="check-btn" onclick="toggleCheck(this)">&check;</button>';
     container.appendChild(row);
+    saveWorkout();
   }
 
   function addExercise() {
     const input = document.getElementById('new-exercise-input');
     const name = input.value.trim();
     if (name === '') return;
+    buildExercise(name);
+    input.value = '';
+    saveWorkout();
+  }
 
+  function buildExercise(name) {
     const block = document.createElement('div');
     block.className = 'exercise-block';
     block.innerHTML =
@@ -462,16 +469,57 @@
       '<div class="sets-container">' +
         '<div class="set-row">' +
           '<div class="set-num">1</div>' +
-          '<input class="set-input" type="number" placeholder="80" />' +
-          '<input class="set-input" type="number" placeholder="8" />' +
+          '<input class="set-input" type="number" placeholder="80" oninput="saveWorkout()" />' +
+          '<input class="set-input" type="number" placeholder="8" oninput="saveWorkout()" />' +
           '<button class="check-btn" onclick="toggleCheck(this)">&check;</button>' +
         '</div>' +
       '</div>' +
       '<button class="add-set-btn" onclick="addSet(this)">+ ADD SET</button>';
-
     document.getElementById('exercise-container').appendChild(block);
-    input.value = '';
+    return block;
   }
+
+  function saveWorkout() {
+    const data = [];
+    document.querySelectorAll('#exercise-container .exercise-block').forEach(block => {
+      const name = block.querySelector('.exercise-name').textContent;
+      const sets = [];
+      block.querySelectorAll('.set-row').forEach(row => {
+        const inputs = row.querySelectorAll('.set-input');
+        sets.push({
+          weight: inputs[0].value,
+          reps: inputs[1].value,
+          done: row.querySelector('.check-btn').classList.contains('done')
+        });
+      });
+      data.push({ name: name, sets: sets });
+    });
+    localStorage.setItem('liftai-workout', JSON.stringify(data));
+  }
+
+  function loadWorkout() {
+    const raw = localStorage.getItem('liftai-workout');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    document.getElementById('exercise-container').innerHTML = '';
+    data.forEach(ex => {
+      const block = buildExercise(ex.name);
+      const container = block.querySelector('.sets-container');
+      container.innerHTML = '';
+      ex.sets.forEach((set, i) => {
+        const row = document.createElement('div');
+        row.className = 'set-row';
+        row.innerHTML =
+          '<div class="set-num">' + (i + 1) + '</div>' +
+          '<input class="set-input" type="number" placeholder="80" value="' + set.weight + '" oninput="saveWorkout()" />' +
+          '<input class="set-input" type="number" placeholder="8" value="' + set.reps + '" oninput="saveWorkout()" />' +
+          '<button class="check-btn' + (set.done ? ' done' : '') + '" onclick="toggleCheck(this)">&check;</button>';
+        container.appendChild(row);
+      });
+    });
+  }
+
+  loadWorkout();
 </script>
 </body>
 </html>
