@@ -20,6 +20,7 @@
       --text:     #e8e6e0;
       --text-dim: #7a7872;
       --accent:   #c8f135;
+      --danger:   #e0524f;
       --mono:     'DM Mono', monospace;
       --sans:     'DM Sans', sans-serif;
     }
@@ -209,9 +210,42 @@
       background: var(--accent);
     }
 
+    .remove-exercise-btn {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 4px;
+      transition: color 0.1s;
+    }
+
+    .remove-exercise-btn:hover {
+      color: var(--danger);
+    }
+
+    .remove-set-btn {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 15px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+      transition: color 0.1s;
+    }
+
+    .remove-set-btn:hover {
+      color: var(--danger);
+    }
+
     .set-head, .set-row {
       display: grid;
-      grid-template-columns: 36px 1fr 1fr 48px;
+      grid-template-columns: 36px 1fr 1fr 48px 28px;
       align-items: center;
       gap: 8px;
       padding: 8px 16px;
@@ -394,19 +428,21 @@
 
       <div id="exercise-container">
         <div class="exercise-block">
-          <div class="exercise-name">Bench Press</div>
+          <div class="exercise-name">Bench Press<button class="remove-exercise-btn" onclick="removeExercise(this)">&times;</button></div>
           <div class="set-head">
             <span>Set</span>
             <span>Weight (kg)</span>
             <span>Reps</span>
             <span></span>
+            <span></span>
           </div>
           <div class="sets-container">
             <div class="set-row">
               <div class="set-num">1</div>
-              <input class="set-input" type="number" placeholder="80" />
-              <input class="set-input" type="number" placeholder="8" />
+              <input class="set-input" type="number" placeholder="80" oninput="saveWorkout()" />
+              <input class="set-input" type="number" placeholder="8" oninput="saveWorkout()" />
               <button class="check-btn" onclick="toggleCheck(this)">&check;</button>
+              <button class="remove-set-btn" onclick="removeSet(this)">&times;</button>
             </div>
           </div>
           <button class="add-set-btn" onclick="addSet(this)">+ ADD SET</button>
@@ -435,17 +471,39 @@
     saveWorkout();
   }
 
+  function setRowHTML(num, weight, reps, done) {
+    return '<div class="set-num">' + num + '</div>' +
+      '<input class="set-input" type="number" placeholder="80" value="' + weight + '" oninput="saveWorkout()" />' +
+      '<input class="set-input" type="number" placeholder="8" value="' + reps + '" oninput="saveWorkout()" />' +
+      '<button class="check-btn' + (done ? ' done' : '') + '" onclick="toggleCheck(this)">&check;</button>' +
+      '<button class="remove-set-btn" onclick="removeSet(this)">&times;</button>';
+  }
+
+  function renumber(container) {
+    container.querySelectorAll('.set-row').forEach((row, i) => {
+      row.querySelector('.set-num').textContent = i + 1;
+    });
+  }
+
   function addSet(btn) {
     const container = btn.parentElement.querySelector('.sets-container');
     const num = container.querySelectorAll('.set-row').length + 1;
     const row = document.createElement('div');
     row.className = 'set-row';
-    row.innerHTML =
-      '<div class="set-num">' + num + '</div>' +
-      '<input class="set-input" type="number" placeholder="80" oninput="saveWorkout()" />' +
-      '<input class="set-input" type="number" placeholder="8" oninput="saveWorkout()" />' +
-      '<button class="check-btn" onclick="toggleCheck(this)">&check;</button>';
+    row.innerHTML = setRowHTML(num, '', '', false);
     container.appendChild(row);
+    saveWorkout();
+  }
+
+  function removeSet(btn) {
+    const container = btn.closest('.sets-container');
+    btn.closest('.set-row').remove();
+    renumber(container);
+    saveWorkout();
+  }
+
+  function removeExercise(btn) {
+    btn.closest('.exercise-block').remove();
     saveWorkout();
   }
 
@@ -462,17 +520,14 @@
     const block = document.createElement('div');
     block.className = 'exercise-block';
     block.innerHTML =
-      '<div class="exercise-name">' + name + '</div>' +
+      '<div class="exercise-name">' + name +
+        '<button class="remove-exercise-btn" onclick="removeExercise(this)">&times;</button>' +
+      '</div>' +
       '<div class="set-head">' +
-        '<span>Set</span><span>Weight (kg)</span><span>Reps</span><span></span>' +
+        '<span>Set</span><span>Weight (kg)</span><span>Reps</span><span></span><span></span>' +
       '</div>' +
       '<div class="sets-container">' +
-        '<div class="set-row">' +
-          '<div class="set-num">1</div>' +
-          '<input class="set-input" type="number" placeholder="80" oninput="saveWorkout()" />' +
-          '<input class="set-input" type="number" placeholder="8" oninput="saveWorkout()" />' +
-          '<button class="check-btn" onclick="toggleCheck(this)">&check;</button>' +
-        '</div>' +
+        '<div class="set-row">' + setRowHTML(1, '', '', false) + '</div>' +
       '</div>' +
       '<button class="add-set-btn" onclick="addSet(this)">+ ADD SET</button>';
     document.getElementById('exercise-container').appendChild(block);
@@ -482,7 +537,7 @@
   function saveWorkout() {
     const data = [];
     document.querySelectorAll('#exercise-container .exercise-block').forEach(block => {
-      const name = block.querySelector('.exercise-name').textContent;
+      const name = block.querySelector('.exercise-name').childNodes[0].textContent.trim();
       const sets = [];
       block.querySelectorAll('.set-row').forEach(row => {
         const inputs = row.querySelectorAll('.set-input');
@@ -509,11 +564,7 @@
       ex.sets.forEach((set, i) => {
         const row = document.createElement('div');
         row.className = 'set-row';
-        row.innerHTML =
-          '<div class="set-num">' + (i + 1) + '</div>' +
-          '<input class="set-input" type="number" placeholder="80" value="' + set.weight + '" oninput="saveWorkout()" />' +
-          '<input class="set-input" type="number" placeholder="8" value="' + set.reps + '" oninput="saveWorkout()" />' +
-          '<button class="check-btn' + (set.done ? ' done' : '') + '" onclick="toggleCheck(this)">&check;</button>';
+        row.innerHTML = setRowHTML(i + 1, set.weight, set.reps, set.done);
         container.appendChild(row);
       });
     });
