@@ -380,6 +380,119 @@
     .add-exercise-btn:hover {
       background: #d4ff45;
     }
+
+    /* Exercise library */
+    .lib-header {
+      margin-bottom: 20px;
+    }
+
+    .lib-title {
+      font-size: 22px;
+      font-weight: 300;
+      letter-spacing: -0.5px;
+    }
+
+    .lib-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    .lib-search {
+      width: 100%;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+    }
+
+    .lib-search:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .lib-search::placeholder {
+      color: var(--text-dim);
+    }
+
+    .muscle-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 20px;
+    }
+
+    .muscle-chip {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      background: none;
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+
+    .muscle-chip:hover {
+      color: var(--text);
+    }
+
+    .muscle-chip.active {
+      color: var(--bg);
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .lib-group {
+      margin-bottom: 24px;
+    }
+
+    .lib-group-name {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+
+    .lib-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 4px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .lib-item:last-child {
+      border-bottom: none;
+    }
+
+    .lib-item-name {
+      font-size: 14px;
+    }
+
+    .lib-item-equip {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .lib-empty {
+      color: var(--text-dim);
+      font-size: 13px;
+      padding: 24px 4px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -419,7 +532,15 @@
       </div>
     </section>
     <section class="page" id="page-planner"></section>
-    <section class="page" id="page-library"></section>
+    <section class="page" id="page-library">
+      <div class="lib-header">
+        <div class="lib-title">Exercise library</div>
+        <div class="lib-sub">Browse exercises by muscle group</div>
+      </div>
+      <input class="lib-search" id="lib-search" type="text" placeholder="Search exercises..." oninput="renderLibrary()" />
+      <div class="muscle-filters" id="muscle-filters"></div>
+      <div id="lib-list"></div>
+    </section>
     <section class="page" id="page-log">
       <div class="log-header">
         <div class="log-title">Workout log</div>
@@ -569,6 +690,88 @@
       });
     });
   }
+
+  const EXERCISES = [
+    { name: 'Bench Press', muscle: 'Chest', equip: 'Barbell' },
+    { name: 'Incline Dumbbell Press', muscle: 'Chest', equip: 'Dumbbell' },
+    { name: 'Push-up', muscle: 'Chest', equip: 'Bodyweight' },
+    { name: 'Deadlift', muscle: 'Back', equip: 'Barbell' },
+    { name: 'Pull-up', muscle: 'Back', equip: 'Bodyweight' },
+    { name: 'Bent-over Row', muscle: 'Back', equip: 'Barbell' },
+    { name: 'Lat Pulldown', muscle: 'Back', equip: 'Cable' },
+    { name: 'Squat', muscle: 'Legs', equip: 'Barbell' },
+    { name: 'Romanian Deadlift', muscle: 'Legs', equip: 'Barbell' },
+    { name: 'Leg Press', muscle: 'Legs', equip: 'Machine' },
+    { name: 'Lunge', muscle: 'Legs', equip: 'Dumbbell' },
+    { name: 'Overhead Press', muscle: 'Shoulders', equip: 'Barbell' },
+    { name: 'Lateral Raise', muscle: 'Shoulders', equip: 'Dumbbell' },
+    { name: 'Face Pull', muscle: 'Shoulders', equip: 'Cable' },
+    { name: 'Bicep Curl', muscle: 'Arms', equip: 'Dumbbell' },
+    { name: 'Tricep Pushdown', muscle: 'Arms', equip: 'Cable' },
+    { name: 'Hammer Curl', muscle: 'Arms', equip: 'Dumbbell' },
+    { name: 'Plank', muscle: 'Core', equip: 'Bodyweight' },
+    { name: 'Hanging Leg Raise', muscle: 'Core', equip: 'Bodyweight' },
+    { name: 'Cable Crunch', muscle: 'Core', equip: 'Cable' }
+  ];
+
+  const MUSCLES = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'];
+  let activeMuscle = 'All';
+
+  function buildFilters() {
+    const wrap = document.getElementById('muscle-filters');
+    MUSCLES.forEach(m => {
+      const chip = document.createElement('button');
+      chip.className = 'muscle-chip' + (m === activeMuscle ? ' active' : '');
+      chip.textContent = m;
+      chip.onclick = () => {
+        activeMuscle = m;
+        document.querySelectorAll('.muscle-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        renderLibrary();
+      };
+      wrap.appendChild(chip);
+    });
+  }
+
+  function renderLibrary() {
+    const query = document.getElementById('lib-search').value.trim().toLowerCase();
+    const list = document.getElementById('lib-list');
+    list.innerHTML = '';
+
+    const matches = EXERCISES.filter(ex => {
+      const matchesMuscle = activeMuscle === 'All' || ex.muscle === activeMuscle;
+      const matchesQuery = ex.name.toLowerCase().includes(query);
+      return matchesMuscle && matchesQuery;
+    });
+
+    if (matches.length === 0) {
+      list.innerHTML = '<div class="lib-empty">No exercises found.</div>';
+      return;
+    }
+
+    const groups = {};
+    matches.forEach(ex => {
+      if (!groups[ex.muscle]) groups[ex.muscle] = [];
+      groups[ex.muscle].push(ex);
+    });
+
+    Object.keys(groups).forEach(muscle => {
+      const group = document.createElement('div');
+      group.className = 'lib-group';
+      let html = '<div class="lib-group-name">' + muscle + '</div>';
+      groups[muscle].forEach(ex => {
+        html += '<div class="lib-item">' +
+          '<span class="lib-item-name">' + ex.name + '</span>' +
+          '<span class="lib-item-equip">' + ex.equip + '</span>' +
+        '</div>';
+      });
+      group.innerHTML = html;
+      list.appendChild(group);
+    });
+  }
+
+  buildFilters();
+  renderLibrary();
 
   loadWorkout();
 </script>
