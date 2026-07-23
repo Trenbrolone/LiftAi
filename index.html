@@ -493,6 +493,165 @@
       padding: 24px 4px;
       text-align: center;
     }
+
+    .lib-credit {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      line-height: 1.6;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+      margin-top: 8px;
+    }
+
+    .lib-credit a {
+      color: var(--text-dim);
+      text-decoration: underline;
+    }
+
+    .lib-credit a:hover { color: var(--accent); }
+
+    /* Library items are clickable (open detail view) */
+    .lib-item {
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .lib-item:hover {
+      background: var(--bg-2);
+    }
+
+    .lib-item-name::before {
+      content: '›';
+      color: var(--text-dim);
+      margin-right: 8px;
+    }
+
+    /* Exercise detail overlay */
+    .ex-detail {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(0, 0, 0, 0.72);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 20px;
+      overflow-y: auto;
+    }
+
+    .ex-detail[hidden] { display: none; }
+
+    .ex-detail-panel {
+      position: relative;
+      width: 100%;
+      max-width: 520px;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+    }
+
+    .ex-detail-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 2;
+      width: 32px;
+      height: 32px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+
+    .ex-detail-close:hover {
+      color: var(--danger);
+      border-color: var(--danger);
+    }
+
+    .ex-detail-img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .ex-detail-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Placeholder shown when an image is missing (see TODO in JS) */
+    .ex-detail-img.placeholder::after {
+      content: 'NO IMAGE';
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+    }
+
+    .ex-detail-body {
+      padding: 20px;
+    }
+
+    .ex-detail-name {
+      font-size: 20px;
+      font-weight: 300;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+      padding-right: 32px;
+    }
+
+    .ex-detail-meta {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 20px;
+    }
+
+    .ex-detail-tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+      padding: 5px 10px;
+    }
+
+    .ex-detail-desc-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .ex-detail-desc {
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--text);
+    }
+
+    .ex-detail-credit {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border);
+      margin-top: 20px;
+      padding-top: 12px;
+    }
   </style>
 </head>
 <body>
@@ -540,6 +699,11 @@
       <input class="lib-search" id="lib-search" type="text" placeholder="Search exercises..." oninput="renderLibrary()" />
       <div class="muscle-filters" id="muscle-filters"></div>
       <div id="lib-list"></div>
+      <div class="lib-credit">
+        Exercise images &amp; how-to text from
+        <a href="https://github.com/yuhonas/free-exercise-db" target="_blank" rel="noopener">free-exercise-db</a>
+        by yuhonas &mdash; public domain (The Unlicense). See NOTICE.md.
+      </div>
     </section>
     <section class="page" id="page-log">
       <div class="log-header">
@@ -577,6 +741,28 @@
     </section>
     <section class="page" id="page-coach"></section>
   </main>
+
+  <!-- Exercise detail overlay: opened by clicking a library item -->
+  <div id="ex-detail" class="ex-detail" hidden onclick="if(event.target===this) closeDetail()">
+    <div class="ex-detail-panel" role="dialog" aria-modal="true" aria-labelledby="ex-detail-name">
+      <button class="ex-detail-close" onclick="closeDetail()" aria-label="Close">&times;</button>
+      <div class="ex-detail-img" id="ex-detail-img">
+        <!-- <img> is injected here; a placeholder slot shows if the image is missing -->
+      </div>
+      <div class="ex-detail-body">
+        <div class="ex-detail-name" id="ex-detail-name"></div>
+        <div class="ex-detail-meta">
+          <span class="ex-detail-tag" id="ex-detail-muscle"></span>
+          <span class="ex-detail-tag" id="ex-detail-equip"></span>
+        </div>
+        <div class="ex-detail-desc-label">How to perform</div>
+        <div class="ex-detail-desc" id="ex-detail-desc"></div>
+        <div class="ex-detail-credit">
+          Image &amp; text: free-exercise-db (public domain, The Unlicense)
+        </div>
+      </div>
+    </div>
+  </div>
 
 </div>
 <script>
@@ -854,7 +1040,7 @@
       group.className = 'lib-group';
       let html = '<div class="lib-group-name">' + muscle + '</div>';
       groups[muscle].forEach(ex => {
-        html += '<div class="lib-item">' +
+        html += '<div class="lib-item" data-img="' + ex.img + '">' +
           '<span class="lib-item-name">' + ex.name + '</span>' +
           '<span class="lib-item-equip">' + ex.equip + '</span>' +
         '</div>';
@@ -863,6 +1049,52 @@
       list.appendChild(group);
     });
   }
+
+  // --- Exercise detail view ---
+  function openDetail(img) {
+    const ex = EXERCISES.find(e => e.img === img);
+    if (!ex) return;
+
+    document.getElementById('ex-detail-name').textContent = ex.name;
+    document.getElementById('ex-detail-muscle').textContent = ex.muscle;
+    document.getElementById('ex-detail-equip').textContent = ex.equip;
+    document.getElementById('ex-detail-desc').textContent = ex.desc;
+
+    const imgWrap = document.getElementById('ex-detail-img');
+    imgWrap.classList.remove('placeholder');
+    imgWrap.innerHTML = '';
+    const image = new Image();
+    image.alt = ex.name;
+    // Images live locally in images/<img> (public domain, free-exercise-db).
+    // TODO: all 114 exercises currently have an image. If one is ever missing,
+    // this onerror handler falls back to a clean "NO IMAGE" placeholder slot.
+    image.onerror = function () {
+      imgWrap.innerHTML = '';
+      imgWrap.classList.add('placeholder');
+    };
+    image.src = 'images/' + ex.img;
+    imgWrap.appendChild(image);
+
+    const overlay = document.getElementById('ex-detail');
+    overlay.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDetail() {
+    document.getElementById('ex-detail').hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  // Open the detail view when a library item is clicked (event delegation)
+  document.getElementById('lib-list').addEventListener('click', function (e) {
+    const item = e.target.closest('.lib-item');
+    if (item && item.dataset.img) openDetail(item.dataset.img);
+  });
+
+  // Close the detail view with the Escape key
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !document.getElementById('ex-detail').hidden) closeDetail();
+  });
 
   buildFilters();
   renderLibrary();
