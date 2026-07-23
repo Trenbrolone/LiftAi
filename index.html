@@ -512,7 +512,6 @@
 
     .lib-credit a:hover { color: var(--accent); }
 
-    /* Library items are clickable (open detail view) */
     .lib-item {
       cursor: pointer;
       transition: background 0.1s;
@@ -591,7 +590,6 @@
       display: block;
     }
 
-    /* Placeholder shown when an image is missing (see TODO in JS) */
     .ex-detail-img.placeholder::after {
       content: 'NO IMAGE';
       font-family: var(--mono);
@@ -742,13 +740,10 @@
     <section class="page" id="page-coach"></section>
   </main>
 
-  <!-- Exercise detail overlay: opened by clicking a library item -->
   <div id="ex-detail" class="ex-detail" hidden onclick="if(event.target===this) closeDetail()">
     <div class="ex-detail-panel" role="dialog" aria-modal="true" aria-labelledby="ex-detail-name">
       <button class="ex-detail-close" onclick="closeDetail()" aria-label="Close">&times;</button>
-      <div class="ex-detail-img" id="ex-detail-img">
-        <!-- <img> is injected here; a placeholder slot shows if the image is missing -->
-      </div>
+      <div class="ex-detail-img" id="ex-detail-img"></div>
       <div class="ex-detail-body">
         <div class="ex-detail-name" id="ex-detail-name"></div>
         <div class="ex-detail-meta">
@@ -1050,7 +1045,6 @@
     });
   }
 
-  // --- Exercise detail view ---
   function openDetail(img) {
     const ex = EXERCISES.find(e => e.img === img);
     if (!ex) return;
@@ -1065,9 +1059,9 @@
     imgWrap.innerHTML = '';
     const image = new Image();
     image.alt = ex.name;
-    // Images live locally in images/<img> (public domain, free-exercise-db).
-    // TODO: all 114 exercises currently have an image. If one is ever missing,
-    // this onerror handler falls back to a clean "NO IMAGE" placeholder slot.
+    // Images served locally from images/ — free-exercise-db, public domain
+    // (The Unlicense). See NOTICE.md.
+    // TODO: all 114 exercises have an image; this fallback covers ones added later.
     image.onerror = function () {
       imgWrap.innerHTML = '';
       imgWrap.classList.add('placeholder');
@@ -1085,13 +1079,11 @@
     document.body.style.overflow = '';
   }
 
-  // Open the detail view when a library item is clicked (event delegation)
   document.getElementById('lib-list').addEventListener('click', function (e) {
     const item = e.target.closest('.lib-item');
     if (item && item.dataset.img) openDetail(item.dataset.img);
   });
 
-  // Close the detail view with the Escape key
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !document.getElementById('ex-detail').hidden) closeDetail();
   });
