@@ -626,6 +626,30 @@
       padding: 5px 10px;
     }
 
+    .ex-detail-add {
+      width: 100%;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      padding: 12px;
+      margin-bottom: 24px;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .ex-detail-add:hover { background: #d4ff45; }
+
+    .ex-detail-add.added {
+      background: var(--bg-2);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      cursor: default;
+    }
+
     .ex-detail-desc-label {
       font-family: var(--mono);
       font-size: 10px;
@@ -750,6 +774,7 @@
           <span class="ex-detail-tag" id="ex-detail-muscle"></span>
           <span class="ex-detail-tag" id="ex-detail-equip"></span>
         </div>
+        <button class="ex-detail-add" onclick="addToLog()">+ ADD TO LOG</button>
         <div class="ex-detail-desc-label">How to perform</div>
         <div class="ex-detail-desc" id="ex-detail-desc"></div>
         <div class="ex-detail-credit">
@@ -1069,6 +1094,8 @@
     image.src = 'images/' + ex.img;
     imgWrap.appendChild(image);
 
+    setAddButtonState(ex.name);
+
     const overlay = document.getElementById('ex-detail');
     overlay.hidden = false;
     document.body.style.overflow = 'hidden';
@@ -1077,6 +1104,28 @@
   function closeDetail() {
     document.getElementById('ex-detail').hidden = true;
     document.body.style.overflow = '';
+  }
+
+  function isInLog(name) {
+    return Array.from(document.querySelectorAll('#exercise-container .exercise-name'))
+      .some(el => el.childNodes[0].textContent.trim() === name);
+  }
+
+  function setAddButtonState(name) {
+    const btn = document.querySelector('.ex-detail-add');
+    const added = isInLog(name);
+    btn.classList.toggle('added', added);
+    btn.textContent = added ? '✓ ADDED TO LOG' : '+ ADD TO LOG';
+    btn.disabled = added;
+  }
+
+  function addToLog() {
+    const name = document.getElementById('ex-detail-name').textContent;
+    if (!isInLog(name)) {
+      buildExercise(name);
+      saveWorkout();
+    }
+    setAddButtonState(name);
   }
 
   document.getElementById('lib-list').addEventListener('click', function (e) {
