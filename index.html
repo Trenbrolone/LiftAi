@@ -398,6 +398,113 @@
       background: #d4ff45;
     }
 
+    /* AI planner */
+    .planner-header {
+      margin-bottom: 24px;
+    }
+
+    .planner-title {
+      font-size: 22px;
+      font-weight: 300;
+      letter-spacing: -0.5px;
+    }
+
+    .planner-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    .planner-field {
+      margin-bottom: 18px;
+    }
+
+    .planner-label {
+      display: block;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .planner-select {
+      width: 100%;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      padding: 12px 14px;
+      cursor: pointer;
+    }
+
+    .planner-select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .equip-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .equip-chip {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      background: none;
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+
+    .equip-chip:hover {
+      color: var(--text);
+    }
+
+    .equip-chip.on {
+      color: var(--bg);
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .planner-generate {
+      width: 100%;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      padding: 14px;
+      margin-top: 8px;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .planner-generate:hover {
+      background: #d4ff45;
+    }
+
+    .planner-result {
+      margin-top: 28px;
+    }
+
+    .planner-empty {
+      color: var(--text-dim);
+      font-size: 13px;
+      text-align: center;
+      padding: 32px 4px;
+      border: 1px dashed var(--border);
+    }
+
     /* Exercise library */
     .lib-header {
       margin-bottom: 20px;
@@ -729,7 +836,53 @@
         </div>
       </div>
     </section>
-    <section class="page" id="page-planner"></section>
+    <section class="page" id="page-planner">
+      <div class="planner-header">
+        <div class="planner-title">AI workout planner</div>
+        <div class="planner-sub">Set your preferences and generate a program</div>
+      </div>
+
+      <div class="planner-field">
+        <label class="planner-label" for="plan-goal">Goal</label>
+        <select class="planner-select" id="plan-goal">
+          <option value="strength">Build strength</option>
+          <option value="muscle">Build muscle</option>
+          <option value="fitness">General fitness</option>
+          <option value="fatloss">Lose fat</option>
+        </select>
+      </div>
+
+      <div class="planner-field">
+        <label class="planner-label" for="plan-days">Days per week</label>
+        <select class="planner-select" id="plan-days">
+          <option value="2">2 days</option>
+          <option value="3" selected>3 days</option>
+          <option value="4">4 days</option>
+          <option value="5">5 days</option>
+          <option value="6">6 days</option>
+        </select>
+      </div>
+
+      <div class="planner-field">
+        <label class="planner-label" for="plan-level">Experience</label>
+        <select class="planner-select" id="plan-level">
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="advanced">Advanced</option>
+        </select>
+      </div>
+
+      <div class="planner-field">
+        <label class="planner-label">Available equipment</label>
+        <div class="equip-grid" id="plan-equip"></div>
+      </div>
+
+      <button class="planner-generate" onclick="generatePlan()">GENERATE PROGRAM</button>
+
+      <div class="planner-result" id="planner-result">
+        <div class="planner-empty">Your generated program will appear here.</div>
+      </div>
+    </section>
     <section class="page" id="page-library">
       <div class="lib-header">
         <div class="lib-title">Exercise library</div>
@@ -1175,6 +1328,45 @@
     select.value = '';
   }
 
+  const plannerEquip = {};
+
+  function buildEquipChips() {
+    const grid = document.getElementById('plan-equip');
+    const equips = Array.from(new Set(EXERCISES.map(ex => ex.equip))).sort();
+    equips.forEach(eq => {
+      plannerEquip[eq] = true;
+      const chip = document.createElement('button');
+      chip.className = 'equip-chip on';
+      chip.textContent = eq;
+      chip.onclick = () => {
+        plannerEquip[eq] = !plannerEquip[eq];
+        chip.classList.toggle('on', plannerEquip[eq]);
+      };
+      grid.appendChild(chip);
+    });
+  }
+
+  function readPreferences() {
+    return {
+      goal: document.getElementById('plan-goal').value,
+      days: parseInt(document.getElementById('plan-days').value, 10),
+      level: document.getElementById('plan-level').value,
+      equipment: Object.keys(plannerEquip).filter(eq => plannerEquip[eq])
+    };
+  }
+
+  function generatePlan() {
+    const result = document.getElementById('planner-result');
+    const p = readPreferences();
+    if (p.equipment.length === 0) {
+      result.innerHTML = '<div class="planner-empty">Select at least one equipment type.</div>';
+      return;
+    }
+    result.innerHTML = '<div class="planner-empty">Preferences captured &mdash; ' +
+      p.goal + ', ' + p.days + ' days/week, ' + p.level + ' level, ' +
+      p.equipment.length + ' equipment types.<br>Program generation is added in the next step.</div>';
+  }
+
   document.getElementById('lib-list').addEventListener('click', function (e) {
     const item = e.target.closest('.lib-item');
     if (item && item.dataset.img) openDetail(item.dataset.img);
@@ -1187,6 +1379,7 @@
   buildFilters();
   renderLibrary();
   buildExerciseSelect();
+  buildEquipChips();
 
   loadWorkout();
 </script>
