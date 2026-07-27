@@ -339,10 +339,27 @@
     }
 
     /* Add exercise */
+    .exercise-select {
+      width: 100%;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      padding: 12px 14px;
+      margin-top: 20px;
+      cursor: pointer;
+    }
+
+    .exercise-select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
     .add-exercise-bar {
       display: flex;
       gap: 8px;
-      margin-top: 4px;
+      margin-top: 8px;
     }
 
     .exercise-name-input {
@@ -756,9 +773,13 @@
         </div>
       </div>
 
+      <select class="exercise-select" id="exercise-select" onchange="addFromDropdown()">
+        <option value="">+ Add exercise from library&hellip;</option>
+      </select>
+
       <div class="add-exercise-bar">
-        <input class="exercise-name-input" id="new-exercise-input" type="text" placeholder="Exercise name..." onkeydown="if(event.key==='Enter') addExercise()" />
-        <button class="add-exercise-btn" onclick="addExercise()">+ ADD EXERCISE</button>
+        <input class="exercise-name-input" id="new-exercise-input" type="text" placeholder="Or type a custom exercise..." onkeydown="if(event.key==='Enter') addExercise()" />
+        <button class="add-exercise-btn" onclick="addExercise()">+ ADD</button>
       </div>
     </section>
     <section class="page" id="page-coach"></section>
@@ -1119,13 +1140,39 @@
     btn.disabled = added;
   }
 
+  function addNamedExerciseToLog(name) {
+    if (isInLog(name)) return false;
+    buildExercise(name);
+    saveWorkout();
+    return true;
+  }
+
   function addToLog() {
     const name = document.getElementById('ex-detail-name').textContent;
-    if (!isInLog(name)) {
-      buildExercise(name);
-      saveWorkout();
-    }
+    addNamedExerciseToLog(name);
     setAddButtonState(name);
+  }
+
+  function buildExerciseSelect() {
+    const select = document.getElementById('exercise-select');
+    MUSCLES.filter(m => m !== 'All').forEach(muscle => {
+      const group = document.createElement('optgroup');
+      group.label = muscle;
+      EXERCISES.filter(ex => ex.muscle === muscle).forEach(ex => {
+        const opt = document.createElement('option');
+        opt.value = ex.name;
+        opt.textContent = ex.name;
+        group.appendChild(opt);
+      });
+      select.appendChild(group);
+    });
+  }
+
+  function addFromDropdown() {
+    const select = document.getElementById('exercise-select');
+    const name = select.value;
+    if (name) addNamedExerciseToLog(name);
+    select.value = '';
   }
 
   document.getElementById('lib-list').addEventListener('click', function (e) {
@@ -1139,6 +1186,7 @@
 
   buildFilters();
   renderLibrary();
+  buildExerciseSelect();
 
   loadWorkout();
 </script>
