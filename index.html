@@ -445,6 +445,25 @@
       border-color: var(--accent);
     }
 
+    .planner-input {
+      width: 100%;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      padding: 12px 14px;
+    }
+
+    .planner-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .planner-input::placeholder {
+      color: var(--text-dim);
+    }
+
     .equip-grid {
       display: flex;
       flex-wrap: wrap;
@@ -503,6 +522,63 @@
       text-align: center;
       padding: 32px 4px;
       border: 1px dashed var(--border);
+    }
+
+    .plan-title {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+
+    .plan-day {
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+
+    .plan-day-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .plan-day-name {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .plan-day-focus {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .plan-ex {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .plan-ex:last-child { border-bottom: none; }
+
+    .plan-ex-name { font-size: 14px; }
+
+    .plan-ex-scheme {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      white-space: nowrap;
     }
 
     /* Exercise library */
@@ -840,6 +916,11 @@
       <div class="planner-header">
         <div class="planner-title">AI workout planner</div>
         <div class="planner-sub">Set your preferences and generate a program</div>
+      </div>
+
+      <div class="planner-field">
+        <label class="planner-label" for="plan-key">Anthropic API key &mdash; stored only in your browser, never uploaded</label>
+        <input class="planner-input" id="plan-key" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
       </div>
 
       <div class="planner-field">
@@ -1355,16 +1436,151 @@
     };
   }
 
-  function generatePlan() {
+  // The user pastes their own key; it lives in localStorage only and is never committed.
+  function loadPlannerKey() {
+    const saved = localStorage.getItem('liftai-anthropic-key');
+    if (saved) document.getElementById('plan-key').value = saved;
+    document.getElementById('plan-key').addEventListener('input', function (e) {
+      localStorage.setItem('liftai-anthropic-key', e.target.value.trim());
+    });
+  }
+
+  function escapeText(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  // Change PLANNER_MODEL to 'claude-haiku-4-5' for a much cheaper/faster generation.
+  const PLANNER_MODEL = 'claude-opus-5';
+
+  const PLAN_SCHEMA = {
+    type: 'object',
+    properties: {
+      program_name: { type: 'string' },
+      days: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            day: { type: 'string' },
+            focus: { type: 'string' },
+            exercises: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  sets: { type: 'integer' },
+                  reps: { type: 'string' }
+                },
+                required: ['name', 'sets', 'reps'],
+                additionalProperties: false
+              }
+            }
+          },
+          required: ['day', 'focus', 'exercises'],
+          additionalProperties: false
+        }
+      }
+    },
+    required: ['program_name', 'days'],
+    additionalProperties: false
+  };
+
+  async function requestPlan(p, key) {
+    const available = EXERCISES.filter(ex => p.equipment.includes(ex.equip)).map(ex => ex.name);
+    const system = 'You are a strength and conditioning coach. Design a weekly workout ' +
+      'program as JSON matching the provided schema. Use ONLY exercises from the supplied ' +
+      'list. Choose a training split appropriate to the number of days per week. Match set ' +
+      'and rep schemes to the goal: strength = low reps (about 3-6), muscle = moderate ' +
+      '(about 8-12), general fitness or fat loss = higher (about 10-15). Scale the difficulty ' +
+      'to the experience level. Keep the program realistic and safe.';
+    const user = 'Preferences:\n- Goal: ' + p.goal + '\n- Days per week: ' + p.days +
+      '\n- Experience: ' + p.level + '\n- Exercises to choose from (use only these):\n' +
+      available.join(', ');
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: PLANNER_MODEL,
+        max_tokens: 8000,
+        system: system,
+        messages: [{ role: 'user', content: user }],
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: PLAN_SCHEMA } }
+      })
+    });
+
+    if (!res.ok) {
+      let msg = 'Request failed (' + res.status + ').';
+      try { const e = await res.json(); if (e && e.error && e.error.message) msg = e.error.message; } catch (_) {}
+      if (res.status === 401) msg = 'Invalid API key. Check the key and try again.';
+      if (res.status === 429) msg = 'Rate limited or out of credit. Check your Anthropic billing.';
+      throw new Error(msg);
+    }
+
+    const data = await res.json();
+    if (data.stop_reason === 'refusal') throw new Error('The request was declined by the safety system.');
+    if (data.stop_reason === 'max_tokens') throw new Error('The plan was cut off. Try fewer days per week.');
+    const textBlock = (data.content || []).find(b => b.type === 'text');
+    if (!textBlock) throw new Error('No plan was returned. Try again.');
+    return JSON.parse(textBlock.text);
+  }
+
+  function renderPlan(plan) {
+    const result = document.getElementById('planner-result');
+    if (!plan || !Array.isArray(plan.days) || plan.days.length === 0) {
+      result.innerHTML = '<div class="planner-empty">No program returned. Try again.</div>';
+      return;
+    }
+    let html = '<div class="plan-title">' + escapeText(plan.program_name || 'Your program') + '</div>';
+    plan.days.forEach(day => {
+      html += '<div class="plan-day">' +
+        '<div class="plan-day-head">' +
+          '<span class="plan-day-name">' + escapeText(day.day) + '</span>' +
+          '<span class="plan-day-focus">' + escapeText(day.focus) + '</span>' +
+        '</div>';
+      (day.exercises || []).forEach(ex => {
+        html += '<div class="plan-ex">' +
+          '<span class="plan-ex-name">' + escapeText(ex.name) + '</span>' +
+          '<span class="plan-ex-scheme">' + escapeText(ex.sets) + ' &times; ' + escapeText(ex.reps) + '</span>' +
+        '</div>';
+      });
+      html += '</div>';
+    });
+    result.innerHTML = html;
+  }
+
+  async function generatePlan() {
     const result = document.getElementById('planner-result');
     const p = readPreferences();
     if (p.equipment.length === 0) {
       result.innerHTML = '<div class="planner-empty">Select at least one equipment type.</div>';
       return;
     }
-    result.innerHTML = '<div class="planner-empty">Preferences captured &mdash; ' +
-      p.goal + ', ' + p.days + ' days/week, ' + p.level + ' level, ' +
-      p.equipment.length + ' equipment types.<br>Program generation is added in the next step.</div>';
+    const key = (document.getElementById('plan-key').value || '').trim();
+    if (!key) {
+      result.innerHTML = '<div class="planner-empty">Enter your Anthropic API key above to generate a program.</div>';
+      return;
+    }
+
+    const btn = document.querySelector('.planner-generate');
+    btn.disabled = true;
+    result.innerHTML = '<div class="planner-empty">Generating your program&hellip;</div>';
+    try {
+      const plan = await requestPlan(p, key);
+      renderPlan(plan);
+    } catch (err) {
+      result.innerHTML = '<div class="planner-empty">' + escapeText(err.message || 'Something went wrong.') + '</div>';
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   document.getElementById('lib-list').addEventListener('click', function (e) {
@@ -1380,6 +1596,7 @@
   renderLibrary();
   buildExerciseSelect();
   buildEquipChips();
+  loadPlannerKey();
 
   loadWorkout();
 </script>
