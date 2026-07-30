@@ -919,8 +919,8 @@
       </div>
 
       <div class="planner-field">
-        <label class="planner-label" for="plan-key">Anthropic API key &mdash; stored only in your browser, never uploaded</label>
-        <input class="planner-input" id="plan-key" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
+        <label class="planner-label" for="plan-key">Google Gemini API key &mdash; free from AI Studio, stored only in your browser</label>
+        <input class="planner-input" id="plan-key" type="password" placeholder="AIza..." autocomplete="off" spellcheck="false" />
       </div>
 
       <div class="planner-field">
@@ -1438,10 +1438,10 @@
 
   // The user pastes their own key; it lives in localStorage only and is never committed.
   function loadPlannerKey() {
-    const saved = localStorage.getItem('liftai-anthropic-key');
+    const saved = localStorage.getItem('liftai-gemini-key');
     if (saved) document.getElementById('plan-key').value = saved;
     document.getElementById('plan-key').addEventListener('input', function (e) {
-      localStorage.setItem('liftai-anthropic-key', e.target.value.trim());
+      localStorage.setItem('liftai-gemini-key', e.target.value.trim());
     });
   }
 
@@ -1451,41 +1451,43 @@
     });
   }
 
-  // Change PLANNER_MODEL to 'claude-haiku-4-5' for a much cheaper/faster generation.
-  const PLANNER_MODEL = 'claude-opus-5';
+  // Google Gemini model. Free tier from Google AI Studio. See
+  // ai.google.dev/gemini-api/docs/models to pick a different model.
+  const GEMINI_MODEL = 'gemini-2.5-flash';
 
+  // Gemini's responseSchema uses uppercase types and has no additionalProperties.
   const PLAN_SCHEMA = {
-    type: 'object',
+    type: 'OBJECT',
     properties: {
-      program_name: { type: 'string' },
+      program_name: { type: 'STRING' },
       days: {
-        type: 'array',
+        type: 'ARRAY',
         items: {
-          type: 'object',
+          type: 'OBJECT',
           properties: {
-            day: { type: 'string' },
-            focus: { type: 'string' },
+            day: { type: 'STRING' },
+            focus: { type: 'STRING' },
             exercises: {
-              type: 'array',
+              type: 'ARRAY',
               items: {
-                type: 'object',
+                type: 'OBJECT',
                 properties: {
-                  name: { type: 'string' },
-                  sets: { type: 'integer' },
-                  reps: { type: 'string' }
+                  name: { type: 'STRING' },
+                  sets: { type: 'INTEGER' },
+                  reps: { type: 'STRING' }
                 },
                 required: ['name', 'sets', 'reps'],
-                additionalProperties: false
+                propertyOrdering: ['name', 'sets', 'reps']
               }
             }
           },
           required: ['day', 'focus', 'exercises'],
-          additionalProperties: false
+          propertyOrdering: ['day', 'focus', 'exercises']
         }
       }
     },
     required: ['program_name', 'days'],
-    additionalProperties: false
+    propertyOrdering: ['program_name', 'days']
   };
 
   async function requestPlan(p, key) {
@@ -1500,37 +1502,44 @@
       '\n- Experience: ' + p.level + '\n- Exercises to choose from (use only these):\n' +
       available.join(', ');
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
+        'x-goog-api-key': key
       },
       body: JSON.stringify({
-        model: PLANNER_MODEL,
-        max_tokens: 8000,
-        system: system,
-        messages: [{ role: 'user', content: user }],
-        output_config: { effort: 'low', format: { type: 'json_schema', schema: PLAN_SCHEMA } }
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ parts: [{ text: user }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: PLAN_SCHEMA,
+          maxOutputTokens: 4096,
+          thinkingConfig: { thinkingBudget: 0 }
+        }
       })
     });
 
     if (!res.ok) {
       let msg = 'Request failed (' + res.status + ').';
       try { const e = await res.json(); if (e && e.error && e.error.message) msg = e.error.message; } catch (_) {}
-      if (res.status === 401) msg = 'Invalid API key. Check the key and try again.';
-      if (res.status === 429) msg = 'Rate limited or out of credit. Check your Anthropic billing.';
+      if (res.status === 400 && /api key/i.test(msg)) msg = 'Invalid API key. Check the key and try again.';
+      if (res.status === 429) msg = 'Over the free-tier rate limit. Wait a minute and try again.';
       throw new Error(msg);
     }
 
     const data = await res.json();
-    if (data.stop_reason === 'refusal') throw new Error('The request was declined by the safety system.');
-    if (data.stop_reason === 'max_tokens') throw new Error('The plan was cut off. Try fewer days per week.');
-    const textBlock = (data.content || []).find(b => b.type === 'text');
-    if (!textBlock) throw new Error('No plan was returned. Try again.');
-    return JSON.parse(textBlock.text);
+    if (data.promptFeedback && data.promptFeedback.blockReason) {
+      throw new Error('The request was declined by the safety system.');
+    }
+    const candidate = (data.candidates || [])[0];
+    if (!candidate) throw new Error('No plan was returned. Try again.');
+    if (candidate.finishReason === 'MAX_TOKENS') throw new Error('The plan was cut off. Try fewer days per week.');
+    if (candidate.finishReason === 'SAFETY') throw new Error('The request was declined by the safety system.');
+    const part = ((candidate.content && candidate.content.parts) || []).find(pt => pt.text);
+    if (!part) throw new Error('No plan was returned. Try again.');
+    return JSON.parse(part.text);
   }
 
   function renderPlan(plan) {
