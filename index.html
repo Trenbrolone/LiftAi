@@ -445,25 +445,6 @@
       border-color: var(--accent);
     }
 
-    .planner-input {
-      width: 100%;
-      background: var(--bg-2);
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 13px;
-      padding: 12px 14px;
-    }
-
-    .planner-input:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    .planner-input::placeholder {
-      color: var(--text-dim);
-    }
-
     .equip-grid {
       display: flex;
       flex-wrap: wrap;
@@ -916,11 +897,6 @@
       <div class="planner-header">
         <div class="planner-title">AI workout planner</div>
         <div class="planner-sub">Set your preferences and generate a program</div>
-      </div>
-
-      <div class="planner-field">
-        <label class="planner-label" for="plan-key">Google Gemini API key &mdash; free from AI Studio, stored only in your browser</label>
-        <input class="planner-input" id="plan-key" type="password" placeholder="AIza..." autocomplete="off" spellcheck="false" />
       </div>
 
       <div class="planner-field">
@@ -1436,110 +1412,35 @@
     };
   }
 
-  // The user pastes their own key; it lives in localStorage only and is never committed.
-  function loadPlannerKey() {
-    const saved = localStorage.getItem('liftai-gemini-key');
-    if (saved) document.getElementById('plan-key').value = saved;
-    document.getElementById('plan-key').addEventListener('input', function (e) {
-      localStorage.setItem('liftai-gemini-key', e.target.value.trim());
-    });
-  }
-
   function escapeText(s) {
     return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
     });
   }
 
-  // Google Gemini model. Free tier from Google AI Studio. See
-  // ai.google.dev/gemini-api/docs/models to pick a different model.
-  const GEMINI_MODEL = 'gemini-2.5-flash';
+  // The planner calls our own serverless function (see api/plan.js), which holds
+  // the Gemini API key as a server secret. Users need no key of their own.
+  const PLANNER_ENDPOINT = '/api/plan';
 
-  // Gemini's responseSchema uses uppercase types and has no additionalProperties.
-  const PLAN_SCHEMA = {
-    type: 'OBJECT',
-    properties: {
-      program_name: { type: 'STRING' },
-      days: {
-        type: 'ARRAY',
-        items: {
-          type: 'OBJECT',
-          properties: {
-            day: { type: 'STRING' },
-            focus: { type: 'STRING' },
-            exercises: {
-              type: 'ARRAY',
-              items: {
-                type: 'OBJECT',
-                properties: {
-                  name: { type: 'STRING' },
-                  sets: { type: 'INTEGER' },
-                  reps: { type: 'STRING' }
-                },
-                required: ['name', 'sets', 'reps'],
-                propertyOrdering: ['name', 'sets', 'reps']
-              }
-            }
-          },
-          required: ['day', 'focus', 'exercises'],
-          propertyOrdering: ['day', 'focus', 'exercises']
-        }
-      }
-    },
-    required: ['program_name', 'days'],
-    propertyOrdering: ['program_name', 'days']
-  };
-
-  async function requestPlan(p, key) {
+  async function requestPlan(p) {
     const available = EXERCISES.filter(ex => p.equipment.includes(ex.equip)).map(ex => ex.name);
-    const system = 'You are a strength and conditioning coach. Design a weekly workout ' +
-      'program as JSON matching the provided schema. Use ONLY exercises from the supplied ' +
-      'list. Choose a training split appropriate to the number of days per week. Match set ' +
-      'and rep schemes to the goal: strength = low reps (about 3-6), muscle = moderate ' +
-      '(about 8-12), general fitness or fat loss = higher (about 10-15). Scale the difficulty ' +
-      'to the experience level. Keep the program realistic and safe.';
-    const user = 'Preferences:\n- Goal: ' + p.goal + '\n- Days per week: ' + p.days +
-      '\n- Experience: ' + p.level + '\n- Exercises to choose from (use only these):\n' +
-      available.join(', ');
 
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-goog-api-key': key
-      },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: [{ parts: [{ text: user }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: PLAN_SCHEMA,
-          maxOutputTokens: 4096,
-          thinkingConfig: { thinkingBudget: 0 }
-        }
-      })
-    });
-
-    if (!res.ok) {
-      let msg = 'Request failed (' + res.status + ').';
-      try { const e = await res.json(); if (e && e.error && e.error.message) msg = e.error.message; } catch (_) {}
-      if (res.status === 400 && /api key/i.test(msg)) msg = 'Invalid API key. Check the key and try again.';
-      if (res.status === 429) msg = 'Over the free-tier rate limit. Wait a minute and try again.';
-      throw new Error(msg);
+    let res;
+    try {
+      res = await fetch(PLANNER_ENDPOINT, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ goal: p.goal, days: p.days, level: p.level, available: available })
+      });
+    } catch (e) {
+      throw new Error('Could not reach the planner. Are you online?');
     }
 
-    const data = await res.json();
-    if (data.promptFeedback && data.promptFeedback.blockReason) {
-      throw new Error('The request was declined by the safety system.');
-    }
-    const candidate = (data.candidates || [])[0];
-    if (!candidate) throw new Error('No plan was returned. Try again.');
-    if (candidate.finishReason === 'MAX_TOKENS') throw new Error('The plan was cut off. Try fewer days per week.');
-    if (candidate.finishReason === 'SAFETY') throw new Error('The request was declined by the safety system.');
-    const part = ((candidate.content && candidate.content.parts) || []).find(pt => pt.text);
-    if (!part) throw new Error('No plan was returned. Try again.');
-    return JSON.parse(part.text);
+    const data = await res.json().catch(function () { return {}; });
+    if (data.error) throw new Error(data.error);
+    if (!res.ok) throw new Error('Request failed (' + res.status + ').');
+    if (!data.plan) throw new Error('No plan was returned. Try again.');
+    return data.plan;
   }
 
   function renderPlan(plan) {
@@ -1573,17 +1474,12 @@
       result.innerHTML = '<div class="planner-empty">Select at least one equipment type.</div>';
       return;
     }
-    const key = (document.getElementById('plan-key').value || '').trim();
-    if (!key) {
-      result.innerHTML = '<div class="planner-empty">Enter your Anthropic API key above to generate a program.</div>';
-      return;
-    }
 
     const btn = document.querySelector('.planner-generate');
     btn.disabled = true;
     result.innerHTML = '<div class="planner-empty">Generating your program&hellip;</div>';
     try {
-      const plan = await requestPlan(p, key);
+      const plan = await requestPlan(p);
       renderPlan(plan);
     } catch (err) {
       result.innerHTML = '<div class="planner-empty">' + escapeText(err.message || 'Something went wrong.') + '</div>';
@@ -1605,7 +1501,6 @@
   renderLibrary();
   buildExerciseSelect();
   buildEquipChips();
-  loadPlannerKey();
 
   loadWorkout();
 </script>
