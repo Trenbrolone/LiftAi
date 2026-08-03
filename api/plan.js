@@ -1,49 +1,17 @@
 // Serverless function (Vercel, Node 18+ for global fetch).
 //
-// The Gemini API key is a SERVER-SIDE SECRET: set GEMINI_API_KEY in the Vercel
+// The Groq API key is a SERVER-SIDE SECRET: set GROQ_API_KEY in the Vercel
 // project's Environment Variables. It is never sent to the browser and never
 // committed to this repository. This is what lets users generate programs
 // without needing their own key.
 //
-// The prompt and schema are fixed here so this endpoint can only be used to
-// generate workout programs (it cannot be abused to run arbitrary prompts on
-// your key).
+// The prompt is fixed here so this endpoint can only be used to generate
+// workout programs (it cannot be abused to run arbitrary prompts on your key).
+//
+// Get a free key at https://console.groq.com. Change GROQ_MODEL to another
+// listed model if this one is ever retired (see console.groq.com/docs/models).
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
-
-const PLAN_SCHEMA = {
-  type: 'OBJECT',
-  properties: {
-    program_name: { type: 'STRING' },
-    days: {
-      type: 'ARRAY',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          day: { type: 'STRING' },
-          focus: { type: 'STRING' },
-          exercises: {
-            type: 'ARRAY',
-            items: {
-              type: 'OBJECT',
-              properties: {
-                name: { type: 'STRING' },
-                sets: { type: 'INTEGER' },
-                reps: { type: 'STRING' }
-              },
-              required: ['name', 'sets', 'reps'],
-              propertyOrdering: ['name', 'sets', 'reps']
-            }
-          }
-        },
-        required: ['day', 'focus', 'exercises'],
-        propertyOrdering: ['day', 'focus', 'exercises']
-      }
-    }
-  },
-  required: ['program_name', 'days'],
-  propertyOrdering: ['program_name', 'days']
-};
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -52,8 +20,8 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed.' }); return; }
 
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) { res.status(500).json({ error: 'Server is not configured (missing GEMINI_API_KEY).' }); return; }
+  const key = process.env.GROQ_API_KEY;
+  if (!key) { res.status(500).json({ error: 'Server is not configured (missing GROQ_API_KEY).' }); return; }
 
   const body = req.body || {};
   const goal = String(body.goal || '');
@@ -68,29 +36,35 @@ module.exports = async function handler(req, res) {
   }
 
   const system = 'You are a strength and conditioning coach. Design a weekly workout ' +
-    'program as JSON matching the provided schema. Use ONLY exercises from the supplied ' +
-    'list. Choose a training split appropriate to the number of days per week. Match set ' +
-    'and rep schemes to the goal: strength = low reps (about 3-6), muscle = moderate ' +
-    '(about 8-12), general fitness or fat loss = higher (about 10-15). Scale the difficulty ' +
-    'to the experience level. Keep the program realistic and safe.';
+    'program and respond with ONLY a JSON object of exactly this shape:\n' +
+    '{"program_name": string, "days": [{"day": string, "focus": string, ' +
+    '"exercises": [{"name": string, "sets": integer, "reps": string}]}]}\n' +
+    'Use ONLY exercises from the supplied list. Choose a training split appropriate to ' +
+    'the number of days per week. Match set and rep schemes to the goal: strength = low ' +
+    'reps (about 3-6), muscle = moderate (about 8-12), general fitness or fat loss = ' +
+    'higher (about 10-15). Scale the difficulty to the experience level. Keep the ' +
+    'program realistic and safe. Do not include any text outside the JSON.';
   const user = 'Preferences:\n- Goal: ' + goal + '\n- Days per week: ' + days +
     '\n- Experience: ' + level + '\n- Exercises to choose from (use only these):\n' +
     available.join(', ');
 
   let gres;
   try {
-    gres = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent', {
+    gres = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+      headers: {
+        'content-type': 'application/json',
+        'authorization': 'Bearer ' + key
+      },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: [{ parts: [{ text: user }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: PLAN_SCHEMA,
-          maxOutputTokens: 4096,
-          thinkingConfig: { thinkingBudget: 0 }
-        }
+        model: GROQ_MODEL,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user }
+        ],
+        response_format: { type: 'json_object' },
+        max_completion_tokens: 2048,
+        temperature: 0.7
       })
     });
   } catch (e) {
@@ -104,20 +78,16 @@ module.exports = async function handler(req, res) {
     res.status(gres.status === 429 ? 429 : 502).json({ error: msg });
     return;
   }
-  if (data.promptFeedback && data.promptFeedback.blockReason) {
-    res.status(200).json({ error: 'The request was declined by the safety system.' });
-    return;
-  }
-  const candidate = (data.candidates || [])[0];
-  if (candidate && candidate.finishReason === 'MAX_TOKENS') {
+  const choice = (data.choices || [])[0];
+  if (choice && choice.finish_reason === 'length') {
     res.status(200).json({ error: 'The plan was cut off. Try fewer days per week.' });
     return;
   }
-  const part = candidate && candidate.content && (candidate.content.parts || []).find(function (pt) { return pt.text; });
-  if (!part) { res.status(200).json({ error: 'No plan was returned. Try again.' }); return; }
+  const content = choice && choice.message && choice.message.content;
+  if (!content) { res.status(200).json({ error: 'No plan was returned. Try again.' }); return; }
 
   let plan;
-  try { plan = JSON.parse(part.text); } catch (e) {
+  try { plan = JSON.parse(content); } catch (e) {
     res.status(502).json({ error: 'The AI returned an unreadable plan.' });
     return;
   }

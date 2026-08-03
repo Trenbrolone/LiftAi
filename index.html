@@ -1419,7 +1419,7 @@
   }
 
   // The planner calls our own serverless function (see api/plan.js), which holds
-  // the Gemini API key as a server secret. Users need no key of their own.
+  // the AI provider's API key as a server secret. Users need no key of their own.
   const PLANNER_ENDPOINT = '/api/plan';
 
   async function requestPlan(p) {
