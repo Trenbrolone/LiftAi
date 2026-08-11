@@ -551,8 +551,6 @@
       border-bottom: 1px solid var(--border);
     }
 
-    .plan-ex:last-child { border-bottom: none; }
-
     .plan-ex-name { font-size: 14px; }
 
     .plan-ex-scheme {
@@ -560,6 +558,27 @@
       font-size: 12px;
       color: var(--text-dim);
       white-space: nowrap;
+    }
+
+    .plan-add-day {
+      width: 100%;
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 10px;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .plan-add-day:hover { background: var(--bg-2); }
+
+    .plan-add-day.added {
+      color: var(--text-dim);
+      cursor: default;
     }
 
     /* Exercise library */
@@ -1443,14 +1462,19 @@
     return data.plan;
   }
 
+  // Holds the most recently generated program so the per-day "add to log"
+  // buttons can look up their exercises by day index.
+  let lastPlan = null;
+
   function renderPlan(plan) {
     const result = document.getElementById('planner-result');
     if (!plan || !Array.isArray(plan.days) || plan.days.length === 0) {
       result.innerHTML = '<div class="planner-empty">No program returned. Try again.</div>';
       return;
     }
+    lastPlan = plan;
     let html = '<div class="plan-title">' + escapeText(plan.program_name || 'Your program') + '</div>';
-    plan.days.forEach(day => {
+    plan.days.forEach((day, i) => {
       html += '<div class="plan-day">' +
         '<div class="plan-day-head">' +
           '<span class="plan-day-name">' + escapeText(day.day) + '</span>' +
@@ -1462,9 +1486,24 @@
           '<span class="plan-ex-scheme">' + escapeText(ex.sets) + ' &times; ' + escapeText(ex.reps) + '</span>' +
         '</div>';
       });
+      html += '<button class="plan-add-day" data-day="' + i + '">+ ADD DAY TO LOG</button>';
       html += '</div>';
     });
     result.innerHTML = html;
+  }
+
+  function addDayToLog(dayIndex, btn) {
+    if (!lastPlan || !lastPlan.days || !lastPlan.days[dayIndex]) return;
+    const exercises = lastPlan.days[dayIndex].exercises || [];
+    let added = 0;
+    exercises.forEach(ex => { if (addNamedExerciseToLog(ex.name)) added++; });
+
+    const skipped = exercises.length - added;
+    btn.classList.add('added');
+    btn.disabled = true;
+    if (added === 0) btn.textContent = '✓ ALREADY IN LOG';
+    else if (skipped > 0) btn.textContent = '✓ ADDED ' + added + ' (' + skipped + ' ALREADY IN LOG)';
+    else btn.textContent = '✓ ADDED TO LOG';
   }
 
   async function generatePlan() {
@@ -1491,6 +1530,11 @@
   document.getElementById('lib-list').addEventListener('click', function (e) {
     const item = e.target.closest('.lib-item');
     if (item && item.dataset.img) openDetail(item.dataset.img);
+  });
+
+  document.getElementById('planner-result').addEventListener('click', function (e) {
+    const b = e.target.closest('.plan-add-day');
+    if (b) addDayToLog(parseInt(b.dataset.day, 10), b);
   });
 
   document.addEventListener('keydown', function (e) {
