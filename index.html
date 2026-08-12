@@ -1506,6 +1506,19 @@
     else btn.textContent = '✓ ADDED TO LOG';
   }
 
+  // Persist the last generated program so it survives a page refresh.
+  function savePlan(plan) {
+    try { localStorage.setItem('liftai-plan', JSON.stringify(plan)); } catch (e) {}
+  }
+
+  function loadPlan() {
+    const raw = localStorage.getItem('liftai-plan');
+    if (!raw) return;
+    let plan;
+    try { plan = JSON.parse(raw); } catch (e) { localStorage.removeItem('liftai-plan'); return; }
+    if (plan && Array.isArray(plan.days) && plan.days.length) renderPlan(plan);
+  }
+
   async function generatePlan() {
     const result = document.getElementById('planner-result');
     const p = readPreferences();
@@ -1520,6 +1533,7 @@
     try {
       const plan = await requestPlan(p);
       renderPlan(plan);
+      savePlan(plan);
     } catch (err) {
       result.innerHTML = '<div class="planner-empty">' + escapeText(err.message || 'Something went wrong.') + '</div>';
     } finally {
@@ -1547,6 +1561,7 @@
   buildEquipChips();
 
   loadWorkout();
+  loadPlan();
 </script>
 </body>
 </html>
