@@ -10,8 +10,12 @@
 //
 // Get a free key at https://console.groq.com. Change GROQ_MODEL to another
 // listed model if this one is ever retired (see console.groq.com/docs/models).
+//
+// llama-3.3-70b-versatile was decommissioned by Groq on 2026-08-16, which is
+// why the planner started returning "the model does not exist or you do not
+// have access to it". Groq's recommended replacement is openai/gpt-oss-120b.
 
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const GROQ_MODEL = 'openai/gpt-oss-120b';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -63,6 +67,9 @@ module.exports = async function handler(req, res) {
           { role: 'user', content: user }
         ],
         response_format: { type: 'json_object' },
+        // gpt-oss-120b is a reasoning model and its reasoning counts toward the
+        // completion budget; keep it low so the JSON program is never cut off.
+        reasoning_effort: 'low',
         max_completion_tokens: 2048,
         temperature: 0.7
       })
