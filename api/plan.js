@@ -8,14 +8,18 @@
 // The prompt is fixed here so this endpoint can only be used to generate
 // workout programs (it cannot be abused to run arbitrary prompts on your key).
 //
-// Get a free key at https://console.groq.com. Change GROQ_MODEL to another
-// listed model if this one is ever retired (see console.groq.com/docs/models).
+// Get a free key at https://console.groq.com.
 //
-// llama-3.3-70b-versatile was decommissioned by Groq on 2026-08-16, which is
-// why the planner started returning "the model does not exist or you do not
-// have access to it". Groq's recommended replacement is openai/gpt-oss-120b.
+// The model is read from the GROQ_MODEL environment variable so it can be
+// changed in Vercel's settings without editing or redeploying this code. This
+// matters because Groq retires models: llama-3.3-70b-versatile was
+// decommissioned on 2026-08-16, which is why the planner started returning
+// "the model does not exist or you do not have access to it". If that happens
+// again, set GROQ_MODEL to a current model (see console.groq.com/docs/models)
+// instead of changing the line below. The default is Groq's recommended
+// replacement at the time of writing.
 
-const GROQ_MODEL = 'openai/gpt-oss-120b';
+const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

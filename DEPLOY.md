@@ -32,6 +32,21 @@ user.
 Change `GROQ_API_KEY` in **Vercel → Project → Settings → Environment
 Variables**, then redeploy. Never put the key in the code.
 
+## Changing the AI model (optional)
+
+The planner defaults to `openai/gpt-oss-120b`. Groq retires models from time to
+time (this is what broke the planner once, when `llama-3.3-70b-versatile` was
+decommissioned). If the current model is ever retired, you do **not** need to
+touch the code:
+
+1. Add an environment variable in **Vercel → Project → Settings → Environment
+   Variables**:
+   - **Name:** `GROQ_MODEL`
+   - **Value:** a current model ID from <https://console.groq.com/docs/models>
+2. Redeploy.
+
+Leaving `GROQ_MODEL` unset keeps the built-in default.
+
 ## Notes / limitations
 
 - **You still need one key** — it just lives on the server as a secret instead
